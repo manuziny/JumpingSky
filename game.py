@@ -1,34 +1,38 @@
 import pgzrun
-import pygame #usado apenas para para espelhar a imagem
+import pygame #usado para espelhar a imagem, redimensionar e rect.
+import sys
 
 WIDTH = 640
 HEIGHT = 480
 DEBUG_MODE = True
-TITLE = "Pink Saur Game"
+TITLE = "Jumping Sky"
 
-VELOCIDADE_ANIMACAO = 0.09  # Animação um pouco mais rápida
+VELOCIDADE_ANIMACAO = 0.09 
 VELOCIDADE_JOGADOR = 3
-FORCA_PULO = -11
+FORCA_PULO = -10
 GRAVIDADE = 0.5
 FOOTSTEP_INTERVAL = 0.3
 ENEMY_IDLE_DURATION = 1.5
+background_frame_atual = 0
+background_timer = 0
+VELOCIDADE_FUNDO = 0.3
 
 # --- Layout do Nível ---
-# P = Plataforma, H = Herói (start), E = Inimigo, F = Bandeira (Flag/Fim)
+# P = Plataforma, H = Herói (start), E = Inimigo, F = Final
 LEVEL_MAP = [
-    "                                                                             ",
-    "                                                                             ",
-    "                                                                             ",
-    "                                                                             ",
-    "                                                                       ",
-    "                     E         PPP        PPPPPPPPPP               F         ",
-    "                   PPPPPPPPPP                                     PPPPP      ",
-    "                                                       E                     ",
-    "                                                     PPPPPPPPPPP                ",
-    "    PPPP              PP         PPPPP       PPPP                                ",
-    "                  PPPPP                                      PPPPP                ",
-    "H           E                   E                 E                          ",
-    "PPPPPPPPPPPPPPPPPPPPPPPPP   PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP",
+    "                                                                                                                      ",
+    "                                                                                                                      ",
+    "                                                                                                                      ",
+    "                                                                                                                      ",
+    "                                            E                                                                         ",
+    "                      E                  PPPPPPPP                                            F                        ",
+    "           E         PPPPPPPP         PP                                                   PPPPP                      ",
+    "         PPPPP                  PP                     E                           PPPP   P                           ",
+    "                   PP       E                     PPPPPPPPPPP                   P                    PP               ",
+    "      P                   PPPPP      PPPP       P                     PP   PPP          P                             ",
+    "   PP     PP    P    PPP                      P                PPPPP                             PP                   ",
+    "H     E             E           E                 E      E           E     E       E         E                        ",
+    "PPPPPPPPPPPPPPP   PPPPPPPPPP   PPPPPPPPPPPPP   PPPPP  PPPPPPP    PPPPPPPPPPPPPPPP PPPPP     PPPPP     PPPP   PPP      ",
 ]
 
 game_state = 'menu'
@@ -107,15 +111,12 @@ class Player:
 
     @property
     def hitbox(self):
-        # Cria um retângulo menor para uma colisão mais justa
-        # scale_w/h: 0.5 = 50% do tamanho. Ajuste para o que ficar melhor!
-        scale_w = 0.5  # Largura do hitbox será 50% da largura da imagem
-        scale_h = 0.8  # Altura do hitbox será 80% da altura da imagem
+        scale_w = 0.5  
+        scale_h = 0.8  
         
         hitbox_width = self.actor.width * scale_w
         hitbox_height = self.actor.height * scale_h
         
-        # Cria o Rect do hitbox e o centraliza com o ator
         hb = pygame.Rect(0, 0, hitbox_width, hitbox_height)
         hb.center = self.actor.center
         return hb
@@ -206,7 +207,7 @@ class Enemy:
 
     @property
     def hitbox(self):
-        scale_w = 0.6 # Inimigos podem ter um hitbox um pouco diferente
+        scale_w = 0.6
         scale_h = 0.8
         
         hitbox_width = self.actor.width * scale_w
@@ -228,7 +229,6 @@ class Coin:
         self.tempo_desde_ultimo_frame = 0
 
     def update(self, dt):
-        """A única função do update da bandeira é animá-la."""
         self.tempo_desde_ultimo_frame += dt
         
         if self.tempo_desde_ultimo_frame > VELOCIDADE_ANIMACAO:
@@ -240,19 +240,27 @@ class Coin:
 
     def draw(self):
         self.actor.draw()
-
         
-#Variáveis Globais do Jogo
+# Variáveis Globais do Jogo
 player = None
 platforms = []
 enemies = []
+background_frames = []
 coin = None
 camera_x = 0
 camera_y = 0
+NUM_BACKGROUND_FRAMES = 4
 menu_background_actor = Actor('menu_sprite', center=(WIDTH / 4, HEIGHT / 4))
 
+# Animação do céu
+for i in range(NUM_BACKGROUND_FRAMES):
+    frame_name = f"ceu{i:02d}.gif"
+    background_frames.append(frame_name)
 
-# --- Botões (Menu e Game Over) ---
+background_actor = Actor(background_frames[0])
+
+
+# Botões (Menu e Game Over) ---
 start_button = Rect((WIDTH / 2 - 125, 200), (250, 50))
 sound_button = Rect((WIDTH / 2 - 125, 270), (250, 50))
 exit_button = Rect((WIDTH / 2 - 125, 340), (250, 50))
@@ -260,42 +268,55 @@ exit_button = Rect((WIDTH / 2 - 125, 340), (250, 50))
 restart_button = Rect((WIDTH / 2 - 100, 250), (200, 50))
 exit_game_over_button = Rect((WIDTH / 2 - 100, 320), (200, 50))
 
-# redimensionando a sprite do menu
-scale_factor = 6
-original_surf = menu_background_actor._surf
-new_width = original_surf.get_width() * scale_factor
-new_height = original_surf.get_height() * scale_factor
-menu_background_actor._surf = pygame.transform.scale(original_surf, (new_width, new_height))
-menu_background_actor.center = (WIDTH / 4.25, HEIGHT / 100)
 
-# --- Definição dos Botões do Menu ---
-#Rects para definir a área clicável dos botões
+# Definição dos Botões do Menu
+# Rects para definir a área clicável dos botões
 start_button = Rect((WIDTH / 2 - 125, 200), (250, 50))
 sound_button = Rect((WIDTH / 2 - 125, 270), (250, 50))
 exit_button = Rect((WIDTH / 2 - 125, 340), (250, 50))
 restart_button = Rect((WIDTH / 2 - 100, 250), (200, 50))
 exit_game_over_button = Rect((WIDTH / 2 - 100, 320), (200, 50))
 
-# --- Funções de Inicialização ---
+# Funções de Inicialização 
 def start_game():
     global player, coin, game_state, win_timer
-
-    platforms.clear()
-    enemies.clear()
-
-    tile_size = 36 # Tamanho de cada "bloco" do nosso mapa
+    platforms.clear(); enemies.clear(); coin = None
+    tile_size = 36
 
     for row_index, row in enumerate(LEVEL_MAP):
         for col_index, char in enumerate(row):
             x = col_index * tile_size
             y = row_index * tile_size
             
+            # Lógica para montar os tiles
             if char == 'P':
-                platform_actor = Actor('tile_01', topleft=(x, y))
+                try:
+                    is_left_p = (LEVEL_MAP[row_index][col_index - 1] == 'P')
+                except IndexError:
+                    is_left_p = False 
+
+                try:
+                    is_right_p = (LEVEL_MAP[row_index][col_index + 1] == 'P')
+                except IndexError:
+                    is_right_p = False 
+
+                tile_name = 'tile_middle' 
+                
+                if not is_left_p and is_right_p:
+                    tile_name = 'tile_left'
+                elif is_left_p and not is_right_p:
+                    tile_name = 'tile_right'
+                elif not is_left_p and not is_right_p:
+                    tile_name = 'tile_single' 
+
+                platform_actor = Actor(tile_name, topleft=(x, y))
                 platform_actor.world_pos = (x, y)
+                
+                # Redimensiosa tile
                 original_surf = platform_actor._surf
                 scaled_surf = pygame.transform.scale(original_surf, (tile_size, tile_size))
                 platform_actor._surf = scaled_surf
+                
                 platforms.append(platform_actor)
 
             elif char == 'H':
@@ -315,14 +336,14 @@ def start_game():
             player.on_ground = True
             player.velocity_y = 0
             break
-    # sincroniza world_pos com a posição corrigida
+    
     player.actor.world_pos = (player.actor.world_pos[0], player.actor.y + camera_y)
 
 
     game_state = 'playing'
     if sound_enabled:
         music.play('pixel-adventure')
-        music.set_volume(0.1)
+        music.set_volume(0.2)
 
 def update_camera_and_positions():
     """Calcula a posição da câmera e atualiza a posição de tela de todos os objetos."""
@@ -334,7 +355,7 @@ def update_camera_and_positions():
     camera_x += (target_camera_x - camera_x) * 0.1
     camera_y += (target_camera_y - camera_y) * 0.1
 
-    # Limites da Câmera (para não mostrar fora do mapa)
+    # Limites da Câmera para não mostrar fora do mapa
     level_width = len(LEVEL_MAP[0]) * 36
     level_height = len(LEVEL_MAP) * 36
     camera_x = max(0, min(camera_x, level_width - WIDTH))
@@ -349,27 +370,28 @@ def update_camera_and_positions():
         p.x = p.world_pos[0] - camera_x
         p.y = p.world_pos[1] - camera_y
 
-
 #Desenha a tela do menu principal.
 def draw_menu():
-    screen.fill((255, 192, 203)) 
-    menu_background_actor.draw()
-    screen.draw.text("Pink Saur Game", center=(WIDTH / 2, 130), fontsize=50, color=(195, 93, 93))
+    background_actor.pos = (WIDTH / 2, HEIGHT / 2)
+    background_actor.draw()
+    screen.draw.text("Jumping Sky", center=(WIDTH / 2, 160), fontname="fonte.ttf", fontsize=50, color=(59, 142, 237))
 
     # Desenha os botões
-    screen.draw.filled_rect(start_button, (255, 153, 153))
-    screen.draw.text("Start Game", center=start_button.center, fontsize=35, color="black")
+    screen.draw.filled_rect(start_button, (59, 142, 237))
+    screen.draw.text("Start Game", center=start_button.center, fontname="fonte.ttf",fontsize=25, color="white")
 
-    screen.draw.filled_rect(sound_button, (255, 153, 153))
+    screen.draw.filled_rect(sound_button, (59, 142, 237))
     sound_text = f"Music: {'OFF' if sound_enabled else 'ON'}"
-    screen.draw.text(sound_text, center=sound_button.center, fontsize=35, color="black")
+    screen.draw.text(sound_text, center=sound_button.center, fontname="fonte.ttf", fontsize=25, color="white")
 
-    screen.draw.filled_rect(exit_button, (155, 53, 53))
-    screen.draw.text("Exit", center=exit_button.center, fontsize=35, color="black")
+    screen.draw.filled_rect(exit_button, (190, 41, 41))
+    screen.draw.text("Exit", center=exit_button.center, fontname="fonte.ttf", fontsize=25, color="white")
 
 #Tela gameplay
 def draw_game():
-    screen.fill((173, 216, 230))
+    background_actor.pos = (WIDTH / 2, HEIGHT / 2)
+    background_actor.draw()
+
     for p in platforms:
         p.draw()
     for e in enemies:
@@ -380,26 +402,27 @@ def draw_game():
         player.draw()
 
 def draw_game_over():
-    screen.fill((255, 182, 193)) # Fundo vermelho escuro
-    screen.draw.text("GAME OVER", center=(WIDTH / 2, 150), fontsize=80, color="red")
+    background_actor.pos = (WIDTH / 2, HEIGHT / 2)
+    background_actor.draw()
+    screen.draw.text("GAME OVER", center=(WIDTH / 2, 200), fontname="fonte.ttf", fontsize=60, color=(190, 41, 41))
+    
+    screen.draw.filled_rect(restart_button, (189, 0, 3))
+    screen.draw.text("Reiniciar", center=restart_button.center, fontname="fonte.ttf", fontsize=25, color="white")
 
-    # Desenha os botões
-    screen.draw.filled_rect(restart_button, (255, 153, 153))
-    screen.draw.text("Reiniciar", center=restart_button.center, fontsize=35, color="white")
-
-    screen.draw.filled_rect(exit_game_over_button, (255, 153, 153))
-    screen.draw.text("Sair do Jogo", center=exit_game_over_button.center, fontsize=35, color="white")
+    screen.draw.filled_rect(exit_game_over_button, (189, 0, 3))
+    screen.draw.text("Sair", center=exit_game_over_button.center,fontname="fonte.ttf", fontsize=25, color="white")
 
 def draw_win():
-    screen.fill((175, 238, 238))
-    screen.draw.text("Conseguiu!", center=(WIDTH / 2, 150), fontsize=80, color="white")
+    background_actor.pos = (WIDTH / 2, HEIGHT / 2)
+    background_actor.draw()
+    screen.draw.text("Conseguiu!", center=(WIDTH / 2, 200), fontname="fonte.ttf", fontsize=60, color=(59, 142, 237))
 
     # Reutiliza os mesmos botões da tela de Game Over
-    screen.draw.filled_rect(restart_button, (255, 153, 153))
-    screen.draw.text("Reiniciar", center=restart_button.center, fontsize=35, color="white")
+    screen.draw.filled_rect(restart_button, (49, 176, 63))
+    screen.draw.text("Reiniciar", center=restart_button.center, fontname="fonte.ttf", fontsize=25, color="white")
 
-    screen.draw.filled_rect(exit_game_over_button, (255, 153, 153))
-    screen.draw.text("Sair do Jogo", center=exit_game_over_button.center, fontsize=35, color="white")
+    screen.draw.filled_rect(exit_game_over_button, (49, 176, 63))
+    screen.draw.text("Sair", center=exit_game_over_button.center, fontname="fonte.ttf", fontsize=25, color="white")
 
 def draw():
     screen.clear()
@@ -414,7 +437,13 @@ def draw():
 
 # Função update principal (fora das classes)
 def update(dt):
-    global game_state
+    global game_state, background_frame_atual, background_timer
+
+    background_timer += dt
+    if background_timer >= VELOCIDADE_FUNDO:
+        background_timer = 0
+        background_frame_atual = (background_frame_atual + 1) % NUM_BACKGROUND_FRAMES
+        background_actor.image = background_frames[background_frame_atual]
 
     if game_state == 'playing':
         player.update(dt)
@@ -430,42 +459,69 @@ def update(dt):
                     player.actor.bottom = p.top
                     player.on_ground = True
                     player.velocity_y = 0
-                    if player.state == 'jump':
-                        player.state = 'idle'
+                    if player.state == 'jump': player.state = 'idle'
+                        
         
     
         player.actor.world_pos = (player.actor.world_pos[0], player.actor.y + camera_y)
         if player.actor.world_pos[1] > len(LEVEL_MAP) * 36 + 100: 
-            game_state = 'game_over'; music.stop()
+            if game_state == 'playing': # Garante que o som toque só uma vez
+                if sound_enabled: sounds.morte.play()
+                game_state = 'game_over'; music.stop()
         for e in enemies:
             if player.hitbox.colliderect(e.hitbox): 
+                if sound_enabled: sounds.morte.play()
                 game_state = 'game_over'; music.stop()
         if coin and player.actor.colliderect(coin.actor): 
+            if sound_enabled:sounds.coin.play() 
             game_state = 'win'; music.stop()
-            
 
+        background_timer += dt
+        if background_timer >= VELOCIDADE_FUNDO:
+            background_timer = 0
+            background_frame_atual = (background_frame_atual + 1) % NUM_BACKGROUND_FRAMES
+            background_actor.image = background_frames[background_frame_atual]
+            
 def on_mouse_down(pos):
     global game_state, sound_enabled
+    button_was_clicked = False
     
     if game_state == 'menu':
-        if start_button.collidepoint(pos): start_game()
+        if start_button.collidepoint(pos): 
+            start_game()
+            button_was_clicked = True
+        
         elif sound_button.collidepoint(pos):
             sound_enabled = not sound_enabled
-            if sound_enabled: music.unpause() if music.is_playing() else music.play('background_music')
+            if sound_enabled:
+                music.play('pixel-adventure') 
+                music.set_volume(0.2)
             else: music.pause()
-        elif exit_button.collidepoint(pos): quit()
+            button_was_clicked = True
+        elif exit_button.collidepoint(pos): 
+            sys.exit()
+            button_was_clicked = True
         
     # Game over
     elif game_state == 'game_over':
         if restart_button.collidepoint(pos):
-            start_game() 
-        elif exit_game_over_button.collidepoint(pos): quit()
+            start_game()
+            button_was_clicked = True 
+        elif exit_game_over_button.collidepoint(pos):
+            sys.exit()
+            button_was_clicked = True
 
     # Win
     elif game_state == 'win':
         if restart_button.collidepoint(pos):
             start_game()
-        elif exit_game_over_button.collidepoint(pos): quit()
+            button_was_clicked = True
+        elif exit_game_over_button.collidepoint(pos):
+            sys.exit()
+            button_was_clicked = True
+    
+    if button_was_clicked and sound_enabled:
+        sounds.click_001.play()
 
 music.play('pixel-adventure')
 music.set_volume(0.2)
